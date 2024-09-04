@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Attendance</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .container {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            width: 300px;
+        }
+
+        .container h1 {
+            margin-bottom: 20px;
+        }
+
+        input,
+        select,
+        button {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+
+        button {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        button:hover {
+            background-color: #218838;
+        }
+
+        .result,
+        .error {
+            margin-top: 20px;
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .error {
+            color: #dc3545;
+        }
+
+        #students-list {
+            margin-top: 20px;
+            text-align: left;
+        }
+
+        #students-list li {
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Student Attendance</h1>
+        <form id="student-form">
+            <input type="number" id="student-id" name="id" placeholder="Enter Student ID" required>
+            <input type="text" id="student-name" name="name" placeholder="Enter Student Name" required>
+            <select id="attendance" name="attendance" required>
+                <option value="Present">Present</option>
+                <option value="Absent">Absent</option>
+            </select>
+            <button type="submit">Add/Update Student</button>
+        </form>
+        <div class="result" id="result"></div>
+        <div class="error" id="error"></div>
+        <button id="load-students">Load Students</button>
+        <div id="students-list"></div>
+        <h2>Delete Student</h2>
+        <form id="delete-form">
+            <input type="number" id="delete-student-id" placeholder="Enter Student ID to Delete" required>
+            <button type="submit">Delete Student</button>
+        </form>
+    </div>
+
+    <script>
+        document.getElementById('student-form').addEventListener('submit', function (event) {
+            event.preventDefault();
+            const studentId = parseInt(document.getElementById('student-id').value);
+            const studentName = document.getElementById('student-name').value;
+            const attendance = document.getElementById('attendance').value;
+
+            fetch(`/students/${studentId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ id: studentId, name: studentName, attendance: attendance })
+            })
+                .then(response => {
+                    if (response.ok) {
+                        return response.json();
+                    } else if (response.status === 404) {
+                        // If student not found, add new student
+                        return fetch('/students', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({ id: studentId, name: studentName, attendance: attendance })
+                        }).then(response => response.json());
+                    } else {
+                        throw new Error('Failed to update or add student');
+                    }
+                })
+                .then(data => {
+                    document.getElementById('result').textContent = data.error ? 'Student added successfully' : 'Student updated successfully';
+                    document.getElementById('error').textContent = '';
+                    loadStudents(); // Refresh the student list after adding/updating
+                })
+                .catch(error => {
+                    document.getElementById('error').textContent = 'Error processing request';
+                });
+        });
+
+        document.getElementById('load-students').addEventListener('click', loadStudents);
+
+        function loadStudents() {
+            fetch('/students')
+                .then(response => response.json())
+                .then(data => {
+                    let studentsList = '<ul>';
+                    data.forEach(student => {
+                        studentsList += `<li>ID: ${student.id}, Name: ${student.name}, Attendance: ${student.attendance}</li>`;
+                    });
+                    studentsList += '</ul>';
+                    document.getElementById('students-list').innerHTML = studentsList;
+                })
+                .catch(error => {
+                    document.getElementById('error').textContent = 'Error loading students';
+                });
+        }
+
+        document.getElementById('delete-form').addEventListener('submit', function (event) {
+            event.preventDefault();
+            const studentId = parseInt(document.getElementById('delete-student-id').value);
+
+            fetch(`/students/${studentId}`, {
+                method: 'DELETE'
+            })
+                .then(response => {
+                    if (response.status === 204) {
+                        document.getElementById('result').textContent = 'Student deleted successfully';
+                        document.getElementById('error').textContent = '';
+                        loadStudents(); // Refresh the student list after deleting
+                    } else {
+                        return response.json();
+                    }
+                })
+                .then(data => {
+                    if (data && data.error) {
+                        document.getElementById('error').textContent = data.error;
+                    }
+                })
+                .catch(error => {
+                    document.getElementById('error').textContent = 'Error deleting student';
+                });
+        });
+    </script>
+</body>
+
+</html>
